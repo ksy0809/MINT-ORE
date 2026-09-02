@@ -1,0 +1,72 @@
+\begin{algorithm}[!t] 
+\caption{Intersection-based Integration}
+\label{alg:integration_cycle}
+\scriptsize
+\begin{algorithmic}[1]
+\Require Initial relational phrase set $P^0$, dataset $D$, binary classification results $\{z_{ij}\}$, granularity scores $gp(p_j)$ for all $p_j \in P^0$, and the hyper-parameters $\gamma$ and $\delta$
+
+\Ensure Final relational phrase inventory $P^{\text{final}}$
+
+\State $t \gets 1$
+
+\For{each $p_j \in P^0$}
+    \State $X_{p_j} \gets \{ {\mathbf x}_i \in D \mid z_{ij}=\mathrm{true} \}$
+\EndFor
+
+\State $\tau \gets$ the $\gamma$-quantile value of $\{gp(p_j) \mid p_j \in P^0\}$
+
+\State $P^t \gets$ Sort $P^0$ in ascending order of $|gp(p)-\tau|$
+
+\While{\textbf{true}}
+    \State $P^{*} \gets P^{t}$
+    \State $\hat{P} \gets \emptyset$
+    \State $PD \gets \emptyset$
+    
+    \For{each $p_i \in P^t$}
+        \If{$p_i \notin PD$}
+            \State $PD_i \gets \emptyset$
+    
+            \For{each $p_j \in P^* \setminus \{p_i\}$}
+                \State $r(p_i,p_j) \gets |X_{p_i} \cap X_{p_j}| / |X_{p_j}|$
+    
+                \If{$r(p_i,p_j) > \delta$}
+                    \State $PD_i \gets PD_i \cup \{p_j\}$
+                    \State $R_{ij} \gets X_{p_j} \setminus X_{p_i}$
+    
+                    \If{$R_{ij} \neq \emptyset$}
+                        \State $\hat{p} \gets \mathrm{LLM}({\mathbf p}_{\mathrm{gen}}, R_{ij})$
+                        \State $\hat{P} \gets \hat{P} \cup \{\hat{p}\}$
+                    \EndIf
+                \EndIf
+            \EndFor
+    
+            \State $PD \gets PD \cup PD_i$
+            \State $P^* \gets P^* \setminus PD_i$
+        \EndIf
+    \EndFor
+
+    \State $\bar{P} \gets P^{*} \cup \hat{P}$
+
+    % [MODIFIED] newly generated phrases are reassigned over the entire dataset
+    \For{each $\hat{p} \in \hat{P}$}
+        \For{each ${\mathbf x}_i \in D$}
+            \State Obtain binary classification result $z_{i\hat{p}}$
+        \EndFor
+        \State $X_{\hat{p}} \gets \{ {\mathbf x}_i \in D \mid z_{i\hat{p}}=\mathrm{true} \}$
+
+        % [MODIFIED] granularity of a new phrase is computed from its new support set
+        \State $gp(\hat{p}) \gets \mathrm{ComputeGranularity}(X_{\hat{p}})$
+    \EndFor
+
+    \State $P^{t+1} \gets$ Sort $\bar{P}$ in ascending order of $|gp(p)-\tau|$
+
+    % [MODIFIED] explicit stopping criterion
+    \If{$P^{t+1}=P^t$}
+        \State \Return $P^{t+1}$ as $P^{\text{final}}$
+    \EndIf
+
+    \State $t \gets t + 1$
+\EndWhile
+
+\end{algorithmic}
+\end{algorithm}
